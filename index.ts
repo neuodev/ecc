@@ -6,48 +6,29 @@
 // x3 = B^2 - x1 - x2
 // y3 = B(x1-x3) - y1
 import { modPow } from "bigint-mod-arith";
+import { randomBytes } from "crypto";
 
-type Numeric = number | bigint | `${number}`;
+type Hex = `0x${string}`;
+type Numeric = number | bigint | `${number}` | Hex;
 
-function pow(
-  a: number | bigint,
-  b: number | bigint,
-  p?: number | bigint
-): bigint {
-  const c = BigInt(a) ** BigInt(b);
-  if (!p) return c;
-  return c % BigInt(p);
+function pow(a: number | bigint, b: number | bigint): bigint {
+  return BigInt(a) ** BigInt(b);
+}
+
+function random(): bigint {
+  const hex = randomBytes(32).toString("hex");
+  return BigInt(`0x${hex}`);
+}
+
+function toHex(val: Numeric): Hex {
+  return `0x${BigInt(val).toString(16)}`;
 }
 
 class Point {
   constructor(public readonly x: bigint, public readonly y: bigint) {}
-
-  public add(other: Point, mod: bigint = 7n): Point {
-    const beta = this.betaOf(other, mod);
-    // x3 = B^2 - x1 - x2
-    const x = (pow(beta, 2) - this.x - other.x) % mod;
-    // y3 = B(x1-x3) - y1
-    const y = (beta * (this.x - x) - this.y) % mod;
-    return new Point(x, y);
-  }
-
-  public addn(g: Point, mod: bigint, n: number | bigint) {
-    let temp = g;
-    for (let i = 0; i < n; i++) {
-      temp = temp.add(g, mod);
-    }
-    return temp;
-  }
-
-  private betaOf(other: Point, mod: bigint): bigint {
-    const isSamePoint = this.x === other.x && this.y === other.y;
-    if (isSamePoint)
-      return (3n * pow(this.x, 2) + a) * modPow(2n * this.y, -1, mod);
-    return (other.y - this.y) * modPow(other.x - this.x, -1, mod);
-  }
 }
 
-class Curve {
+class EllipticCurve {
   readonly a: bigint;
   readonly b: bigint;
   readonly g: Point;
@@ -76,39 +57,88 @@ class Curve {
       (modPow(p.x, 3, this.mod) + this.a * p.x + this.b) % this.mod
     );
   }
+
+  public add(base: Point, other: Point): Point {
+    const beta = this.betaOf(base, other, this.mod);
+    // x3 = B^2 - x1 - x2
+    const x = (pow(beta, 2) - base.x - other.x) % this.mod;
+    // y3 = B(x1-x3) - y1
+    const y = (beta * (base.x - x) - base.y) % this.mod;
+    return new Point(x, y);
+  }
+
+  public doubleAdd(k: Numeric, g: Point = this.g) {
+    let target: Point = g;
+    const kbin = k.toString(2);
+
+    for (let i = 1; i < kbin.length; i++) {
+      const bit = kbin.slice(i, i + 1);
+      target = this.add(target, target);
+      if (bit === "1") target = this.add(target, g);
+    }
+
+    return target;
+  }
+
+  private betaOf(base: Point, other: Point, mod: Numeric): bigint {
+    const isSamePoint = base.x === other.x && base.y === other.y;
+    if (isSamePoint)
+      return (
+        (3n * pow(base.x, 2) + this.a) * modPow(2n * base.y, -1, BigInt(mod))
+      );
+    return (other.y - base.y) * modPow(other.x - base.x, -1, BigInt(mod));
+  }
 }
 
-// curve: secp256k1
-const a = 0n;
-const b = 7n;
-const g = new Point(
-  BigInt(
-    "55066263022277343669578718895168534326250603453777594175500187360389116729240"
-  ),
-  BigInt(
-    "32670510020758816978083085130507043184471273380659243275938904335757337482424"
-  )
+class Secp256k1 extends EllipticCurve {
+  constructor() {
+    super({
+      a: 0,
+      b: 7,
+      g: new Point(
+        BigInt(
+          "55066263022277343669578718895168534326250603453777594175500187360389116729240"
+        ),
+        BigInt(
+          "32670510020758816978083085130507043184471273380659243275938904335757337482424"
+        )
+      ),
+      mod:
+        pow(2, 256) -
+        pow(2, 32) -
+        pow(2, 9) -
+        pow(2, 8) -
+        pow(2, 7) -
+        pow(2, 6) -
+        pow(2, 4) -
+        pow(2, 0),
+    });
+  }
+}
+
+const secp256k1 = new Secp256k1();
+
+class Keypair {
+  constructor(public readonly pk: bigint, public readonly pubkey: Point) {}
+
+  static new(pk: Numeric = random()) {
+    const pubkey = secp256k1.doubleAdd(BigInt(pk));
+    return new Keypair(BigInt(pk), pubkey);
+  }
+
+  public asHex(): { pk: Hex; pubkey: [Hex, Hex] } {
+    return {
+      pk: toHex(this.pk),
+      pubkey: [toHex(this.pubkey.x), toHex(this.pubkey.y)],
+    };
+  }
+}
+
+const keys = Keypair.new();
+console.log(keys, keys.asHex(), secp256k1.isValid(keys.pubkey));
+
+const oldKeys = Keypair.new(
+  "0xb8eaf6de4d59fb7afb0de727ec6dd5c386abfc43052e4792cf05b265658a26a9"
 );
 
-// finite field
-const mod =
-  pow(2, 256) -
-  pow(2, 32) -
-  pow(2, 9) -
-  pow(2, 8) -
-  pow(2, 7) -
-  pow(2, 6) -
-  pow(2, 4) -
-  pow(2, 0);
-const order = BigInt(
-  "115792089237316195423570985008687907852837564279074904382605163141518161494337"
-);
-
-const c = new Point(0n, 1n);
-const d = new Point(3n, 4n);
-const secp256k1 = new Curve({ a, b, g, mod });
-const p2g = g.add(g, mod);
-const p20g = g.addn(g, mod, 20);
-
-console.log(p2g, secp256k1.isValid(p2g));
-console.log(p20g, secp256k1.isValid(p20g));
+console.log(oldKeys.asHex(), secp256k1.isValid(oldKeys.pubkey));

@@ -1,31 +1,27 @@
-# ECDSA (SPEC256k1)
+# ECDSA (SECP256k1)
+
+### Generate private public key pairs
 
 ```ts
-const a = 0n;
-const b = 7n;
-const g = new Point(
-  BigInt(
-    "55066263022277343669578718895168534326250603453777594175500187360389116729240"
-  ),
-  BigInt(
-    "32670510020758816978083085130507043184471273380659243275938904335757337482424"
-  )
+// generate new key pair
+const keys = Keypair.new();
+console.log(keys.asHex());
+// {
+//   pk: '0xa5740fa052b5b62b57226d827f5d2072c0e9e1f140c0d005f2e913b09141f45d',
+//   pubkey: [
+//     '0xae71d35e6afe3854b963f2af11d45f342cc48da22257c7008c6531abd180986e',
+//     '0xeeb30e1d8cab27d4303cca598273223ff5e58cd16b32685a150d7314ef8c2122'
+//   ]
+// }
+console.log(secp256k1.isValid(keys.pubkey)); // true
+```
+
+Create keypair from existing private key
+
+```ts
+const keys = Keypair.new(
+  "0xb8eaf6de4d59fb7afb0de727ec6dd5c386abfc43052e4792cf05b265658a26a9"
 );
 
-// finite field
-const mod =
-  pow(2, 256) -
-  pow(2, 32) -
-  pow(2, 9) -
-  pow(2, 8) -
-  pow(2, 7) -
-  pow(2, 6) -
-  pow(2, 4) -
-  pow(2, 0);
-
-const secp256k1 = new Curve({ a, b, g, mod });
-const p2g = g.add(g, mod);
-const p20g = g.addn(g, mod, 20);
-console.log(p2g, secp256k1.isValid(p2g)); // true
-console.log(p20g, secp256k1.isValid(p20g)); // true
+asset(keys.isValid(keys.pubkey));
 ```
