@@ -1,0 +1,19 @@
+{
+  "name": "ecc",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Ahmed Ibrahim",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "nodemon": "^3.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "bigint-mod-arith": "^3.3.1"
+  }
+}
